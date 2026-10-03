@@ -7,6 +7,7 @@ import { MODULE_NAME } from './src/constants.js';
 import { setContext, initSettings, getSettings, loadChatState, runtimeState } from './src/state.js';
 import { initAudioEngine } from './src/audio-engine.js';
 import { detectMusicAction } from './src/detector.js';
+import { reasonMusicIntentWithLlm } from './src/llm-reasoner.js';
 import { triggerMusic, triggerStopMusic, registerSlashCommands } from './src/commands.js';
 import { initPlayerUI } from './src/player-ui.js';
 import { initSettingsUI } from './src/settings-ui.js';
@@ -76,14 +77,27 @@ async function initializeExtension() {
 
         if (!messageText) return;
 
-        // Run NLP detection
-        const detected = detectMusicAction(messageText);
+        let detected = null;
+
+        // 1. Try LLM Provider Reasoning first if enabled
+        if (settings.useLlmReasoning !== false) {
+            try {
+                detected = await reasonMusicIntentWithLlm(messageText);
+            } catch (err) {
+                console.warn('[RP-Music] LLM reasoning error, falling back to regex:', err);
+            }
+        }
+
+        // 2. Fall back to fast regex NLP detection if LLM reasoning returned null
+        if (!detected) {
+            detected = detectMusicAction(messageText);
+        }
 
         if (detected.action === 'play') {
-            console.log('[RP-Music] Detected RP music play action:', detected);
+            console.log('[RP-Music] Executing RP music play action:', detected);
             await triggerMusic(detected.songTitle, detected.device, detected.mood, detected.artist);
         } else if (detected.action === 'stop') {
-            console.log('[RP-Music] Detected RP music stop action:', detected);
+            console.log('[RP-Music] Executing RP music stop action:', detected);
             triggerStopMusic(detected.device);
         }
     });

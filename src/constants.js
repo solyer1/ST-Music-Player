@@ -79,6 +79,7 @@ export const DEFAULT_DEVICES = {
 export const DEFAULT_SETTINGS = {
     enabled: true,
     autoDetection: true,
+    useLlmReasoning: true, // Use connected LLM provider to reason about song/artist before triggering
     aiAwareness: true,
     musicMemory: true,
     moodMatching: true,

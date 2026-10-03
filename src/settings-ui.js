@@ -72,6 +72,10 @@ export function initSettingsUI() {
                     <span>RP Action Detection (Auto-detect iPod, Radio, "play", "listen to" in messages)</span>
                 </label>
                 <label class="checkbox_label">
+                    <input type="checkbox" id="rp_music_llm_reasoning" ${settings.useLlmReasoning ? 'checked' : ''} />
+                    <span><b>🧠 AI Provider Reasoning (Accurate Song Picker)</b> — Send message to connected AI model to reason & extract exact song and artist before playing</span>
+                </label>
+                <label class="checkbox_label">
                     <input type="checkbox" id="rp_music_ai_awareness" ${settings.aiAwareness ? 'checked' : ''} />
                     <span>AI Character Awareness (Inject currently playing music into prompt)</span>
                 </label>
@@ -200,6 +204,11 @@ function bindSettingsEvents() {
 
     document.getElementById('rp_music_auto_detect')?.addEventListener('change', (e) => {
         settings.autoDetection = e.target.checked;
+        saveSettings();
+    });
+
+    document.getElementById('rp_music_llm_reasoning')?.addEventListener('change', (e) => {
+        settings.useLlmReasoning = e.target.checked;
         saveSettings();
     });
 
