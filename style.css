@@ -1,0 +1,737 @@
+/**
+ * RP World Music - Styling & Visuals
+ * Modern Glassmorphic design with retro audio aesthetics (Vinyl, Cassette, iPod, Spotify)
+ */
+
+/* ========================================================================= */
+/*  Floating Toggle Pill & Container                                         */
+/* ========================================================================= */
+
+.rp-music-player-container {
+    position: fixed;
+    bottom: 80px;
+    right: 20px;
+    z-index: 2500;
+    font-family: inherit;
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+    user-select: none;
+}
+
+.rp-music-toggle-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px;
+    background: var(--SmartThemeBlurTintColor, rgba(20, 24, 34, 0.85));
+    backdrop-filter: blur(var(--SmartThemeBlurStrength, 12px));
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.15));
+    border-radius: 20px;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    color: var(--SmartThemeBodyColor, #ffffff);
+    font-size: calc(var(--mainFontSize, 14px) * 0.9);
+    transition: all 0.25s ease;
+}
+
+.rp-music-toggle-pill:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+    border-color: rgba(29, 185, 84, 0.6);
+}
+
+.rp-music-disc-icon {
+    font-size: 1.1em;
+    color: #1db954;
+}
+
+.rp-pill-now-playing {
+    font-weight: 500;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    opacity: 0.85;
+}
+
+/* ========================================================================= */
+/*  Full Glassmorphic Player Card                                            */
+/* ========================================================================= */
+
+.rp-music-card {
+    position: absolute;
+    bottom: 45px;
+    right: 0;
+    width: 320px;
+    background: var(--SmartThemeBlurTintColor, rgba(16, 20, 30, 0.92));
+    backdrop-filter: blur(var(--SmartThemeBlurStrength, 16px));
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transform-origin: bottom right;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease, visibility 0.25s;
+    visibility: visible;
+    opacity: 1;
+    transform: scale(1);
+}
+
+.rp-music-player-container.closed .rp-music-card {
+    opacity: 0;
+    visibility: hidden;
+    transform: scale(0.85) translateY(15px);
+    pointer-events: none;
+}
+
+/* Header & Badges */
+.rp-player-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.rp-device-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85em;
+    font-weight: 600;
+    color: #a0aec0;
+    background: rgba(255, 255, 255, 0.08);
+    padding: 3px 8px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.rp-source-badge {
+    font-size: 0.8em;
+    font-weight: 600;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 3px 7px;
+    border-radius: 8px;
+    color: #e2e8f0;
+}
+
+.rp-icon-btn {
+    background: transparent;
+    border: none;
+    color: #cbd5e0;
+    cursor: pointer;
+    font-size: 0.9em;
+    padding: 4px;
+    transition: color 0.2s;
+}
+
+.rp-icon-btn:hover {
+    color: #ffffff;
+}
+
+/* ========================================================================= */
+/*  Visual Art / Vinyl Animation / Spotify Cover                             */
+/* ========================================================================= */
+
+.rp-art-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    height: 120px;
+    margin: 4px 0;
+}
+
+.rp-album-art-wrap {
+    width: 105px;
+    height: 105px;
+    border-radius: 50%;
+    position: relative;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0d0f15;
+}
+
+.rp-spotify-cover {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 12px;
+}
+
+.rp-album-art-wrap:has(.rp-spotify-cover[style*="display: block"]) {
+    border-radius: 12px;
+}
+
+/* Vinyl Graphic */
+.rp-vinyl-record {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: radial-gradient(circle, #2a2a2a 0%, #111111 60%, #050505 100%);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+}
+
+.rp-vinyl-grooves {
+    position: absolute;
+    width: 80%;
+    height: 80%;
+    border-radius: 50%;
+    border: 2px dashed rgba(255, 255, 255, 0.08);
+}
+
+.rp-vinyl-center {
+    width: 38%;
+    height: 38%;
+    background: #e53e3e;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 0.9em;
+    box-shadow: 0 0 6px rgba(0,0,0,0.5);
+}
+
+/* Spinning Animation */
+.spinning {
+    animation: rp-spin 8s linear infinite;
+}
+
+@keyframes rp-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Visualizer Bars */
+.rp-visualizer-bars {
+    position: absolute;
+    bottom: 5px;
+    right: 15px;
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 20px;
+}
+
+.rp-visualizer-bars span {
+    width: 3px;
+    height: 4px;
+    background: #1db954;
+    border-radius: 2px;
+    transition: height 0.2s ease;
+}
+
+.rp-music-player-container.is-playing .rp-visualizer-bars span:nth-child(1) { animation: rp-bounce 0.7s infinite alternate ease-in-out; }
+.rp-music-player-container.is-playing .rp-visualizer-bars span:nth-child(2) { animation: rp-bounce 0.9s infinite alternate ease-in-out 0.15s; }
+.rp-music-player-container.is-playing .rp-visualizer-bars span:nth-child(3) { animation: rp-bounce 0.6s infinite alternate ease-in-out 0.3s; }
+.rp-music-player-container.is-playing .rp-visualizer-bars span:nth-child(4) { animation: rp-bounce 1.0s infinite alternate ease-in-out 0.2s; }
+.rp-music-player-container.is-playing .rp-visualizer-bars span:nth-child(5) { animation: rp-bounce 0.8s infinite alternate ease-in-out 0.05s; }
+
+@keyframes rp-bounce {
+    0% { height: 4px; }
+    100% { height: 18px; }
+}
+
+/* ========================================================================= */
+/*  Track Information & Scrub Bar                                            */
+/* ========================================================================= */
+
+.rp-track-info {
+    text-align: center;
+}
+
+.rp-track-title {
+    font-size: 1.05em;
+    font-weight: 700;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.rp-track-artist {
+    font-size: 0.85em;
+    color: #a0aec0;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Scrub bar */
+.rp-progress-section {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.rp-progress-bar-wrap {
+    width: 100%;
+}
+
+.rp-slider {
+    width: 100%;
+    height: 5px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 4px;
+    outline: none;
+    cursor: pointer;
+}
+
+.rp-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    background: #1db954;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 6px rgba(29, 185, 84, 0.6);
+}
+
+.rp-time-display {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75em;
+    color: #a0aec0;
+}
+
+/* Controls */
+.rp-controls-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    margin: 4px 0;
+}
+
+.rp-ctrl-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.rp-ctrl-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.08);
+}
+
+.rp-play-btn {
+    width: 44px;
+    height: 44px;
+    background: #1db954;
+    color: #000;
+    font-size: 1.1em;
+}
+
+.rp-play-btn:hover {
+    background: #1ed760;
+    transform: scale(1.1);
+}
+
+/* Bottom Bar */
+.rp-bottom-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding-top: 4px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rp-volume-box {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85em;
+    color: #a0aec0;
+    flex: 1;
+}
+
+.rp-vol-slider {
+    width: 75px;
+}
+
+.rp-device-dropdown {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #fff;
+    border-radius: 8px;
+    padding: 3px 8px;
+    font-size: 0.8em;
+    cursor: pointer;
+    outline: none;
+}
+
+/* ========================================================================= */
+/*  Settings Drawer Styling                                                  */
+/* ========================================================================= */
+
+.rp-spotify-card {
+    background: rgba(29, 185, 84, 0.07);
+    border: 1px solid rgba(29, 185, 84, 0.25);
+    border-radius: 10px;
+    padding: 12px;
+}
+
+.rp-spotify-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.rp-badge {
+    font-size: 0.75em;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+.rp-badge-connected {
+    background: rgba(29, 185, 84, 0.2);
+    color: #1db954;
+    border: 1px solid #1db954;
+}
+
+.rp-badge-disconnected {
+    background: rgba(255, 255, 255, 0.1);
+    color: #a0aec0;
+}
+
+.rp-hint {
+    font-size: 0.85em;
+    color: #cbd5e0;
+    margin: 4px 0 10px 0;
+}
+
+.rp-input-btn-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.rp-input-btn-row input {
+    flex: 1;
+}
+
+.rp-settings-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.rp-setting-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.rp-divider {
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    margin: 12px 0;
+}
+
+.rp-track-list-box {
+    max-height: 180px;
+    overflow-y: auto;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.25);
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.rp-track-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.rp-track-row:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.rp-track-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.rp-track-meta {
+    display: flex;
+    flex-direction: column;
+}
+
+.rp-mood-badge {
+    background: rgba(66, 153, 225, 0.2);
+    color: #63b3ed;
+    padding: 1px 5px;
+    border-radius: 6px;
+    font-size: 0.8em;
+}
+
+.rp-row-btn {
+    background: transparent;
+    border: none;
+    color: #a0aec0;
+    cursor: pointer;
+    padding: 4px 6px;
+}
+
+.rp-row-btn:hover {
+    color: #fff;
+}
+
+.rp-add-track-box {
+    margin-top: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px dashed rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.rp-form-row {
+    display: flex;
+    gap: 8px;
+}
+
+.rp-btn-row {
+    display: flex;
+    gap: 8px;
+}
+
+.rp-upload-btn {
+    cursor: pointer;
+}
+
+/* ========================================================================= */
+/*  Spotify Embed Player Box                                                 */
+/* ========================================================================= */
+
+.rp-spotify-embed-box {
+    width: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 6px 0;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+    background: #000;
+}
+
+.rp-spotify-embed-box iframe {
+    display: block;
+    border: none;
+    border-radius: 12px;
+}
+
+/* ========================================================================= */
+/*  Mobile & Touch Responsiveness (Phones & Small Tablets)                   */
+/* ========================================================================= */
+
+@media (max-width: 768px) {
+    .rp-music-player-container {
+        bottom: calc(var(--bottomFormBlockSize, 75px) + 16px);
+        right: 12px;
+        max-width: calc(100vw - 24px);
+    }
+
+    .rp-music-toggle-pill {
+        padding: 6px 12px;
+        font-size: 0.85em;
+        gap: 6px;
+    }
+
+    .rp-pill-now-playing {
+        max-width: 100px;
+    }
+
+    .rp-music-card {
+        width: calc(100vw - 24px);
+        max-width: 340px;
+        max-height: 82vh;
+        overflow-y: auto;
+        bottom: 48px;
+        right: 0;
+        padding: 12px;
+        gap: 10px;
+    }
+
+    .rp-art-container {
+        height: 100px;
+    }
+
+    .rp-album-art-wrap {
+        width: 90px;
+        height: 90px;
+    }
+
+    /* Larger touch-friendly buttons for mobile thumbs */
+    .rp-controls-row {
+        gap: 20px;
+    }
+
+    .rp-ctrl-btn {
+        width: 44px;
+        height: 44px;
+        font-size: 1.1em;
+    }
+
+    .rp-play-btn {
+        width: 52px;
+        height: 52px;
+        font-size: 1.3em;
+    }
+
+    /* Thicker seek slider for mobile finger scrubbing */
+    .rp-slider {
+        height: 8px;
+    }
+
+    .rp-slider::-webkit-slider-thumb {
+        width: 18px;
+        height: 18px;
+    }
+
+    /* Stack settings forms on mobile */
+    .rp-input-btn-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .rp-form-row {
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .rp-btn-row {
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .rp-row-btn {
+        padding: 8px 10px;
+        font-size: 1.1em;
+    }
+}
+
+@media (max-width: 400px) {
+    .rp-music-card {
+        max-width: calc(100vw - 16px);
+        right: -4px;
+    }
+}
+
+/* ========================================================================= */
+/*  Spotify Embed Box & Quick Action Button                                  */
+/* ========================================================================= */
+
+.rp-spotify-embed-box {
+    width: 100%;
+    margin-top: 8px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+.rp-spotify-embed-box iframe {
+    border-radius: 12px;
+    display: block;
+    width: 100%;
+}
+
+.rp-spotify-open-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: #1db954;
+    color: #fff !important;
+    font-size: 0.78em;
+    font-weight: 600;
+    text-decoration: none !important;
+    padding: 5px 12px;
+    border-radius: 20px;
+    margin-top: 6px;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(29, 185, 84, 0.4);
+}
+
+.rp-spotify-open-btn:hover {
+    background: #1ed760;
+    transform: scale(1.03);
+    box-shadow: 0 4px 12px rgba(29, 185, 84, 0.6);
+}
+
+.rp-full-embed-box {
+    width: 100%;
+    margin-top: 8px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+.rp-full-embed-box iframe {
+    border-radius: 12px;
+    display: block;
+    width: 100%;
+    height: 90px;
+}
+
+.rp-action-links {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+}
+
+.rp-yt-open-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: #ff0000;
+    color: #fff !important;
+    font-size: 0.78em;
+    font-weight: 600;
+    text-decoration: none !important;
+    padding: 5px 12px;
+    border-radius: 20px;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(255, 0, 0, 0.4);
+}
+
+.rp-yt-open-btn:hover {
+    background: #cc0000;
+    transform: scale(1.03);
+    box-shadow: 0 4px 12px rgba(255, 0, 0, 0.6);
+}
+
+

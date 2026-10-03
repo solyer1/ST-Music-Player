@@ -1,0 +1,17 @@
+# System Files
+.DS_Store
+Thumbs.db
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node / Dependencies
+node_modules/
+npm-debug.log*
+
+# User local audio files (preserve device structure)
+music/*/*
+!music/*/.gitkeep

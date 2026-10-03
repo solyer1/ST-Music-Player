@@ -1,0 +1,13 @@
+{
+    "display_name": "RP World Music",
+    "loading_order": 90,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "css": "style.css",
+    "author": "Community",
+    "version": "1.0.0",
+    "homePage": "https://github.com/solyer1/ST-Music-Player",
+    "auto_update": false,
+    "description": "An immersive in-world roleplay music extension with RP action detection, device playlists (iPod, Radio, Cassette), in-chat player, AI character awareness, and memory."
+}
