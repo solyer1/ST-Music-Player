@@ -249,12 +249,10 @@ export function updateUI(state, type) {
         // Source badge indicator
         if (song.isSpotify) {
             sourceBadgeEl.innerHTML = '<i class="fa-brands fa-spotify" style="color:#1db954;"></i> Spotify Connect';
-        } else if (song.youtubeId) {
-            sourceBadgeEl.innerHTML = '<i class="fa-solid fa-circle-play" style="color:#00e5ff;"></i> Full Song (In-Browser)';
-        } else if (song.previewUrl) {
-            sourceBadgeEl.innerHTML = '<i class="fa-solid fa-tower-broadcast" style="color:#00e5ff;"></i> Stream Preview';
         } else if (song.url && song.url.trim() !== '') {
-            sourceBadgeEl.innerHTML = '<i class="fa-solid fa-file-audio" style="color:#ffd700;"></i> Local Audio';
+            sourceBadgeEl.innerHTML = '<i class="fa-solid fa-file-audio" style="color:#ffd700;"></i> Local Audio (Full)';
+        } else if (song.previewUrl) {
+            sourceBadgeEl.innerHTML = '<i class="fa-solid fa-tower-broadcast" style="color:#fc3c44;"></i> Preview (30s) • Tap YouTube for Full';
         } else {
             sourceBadgeEl.innerHTML = '<i class="fa-solid fa-wave-square" style="color:#a855f7;"></i> Ambient Synth';
         }

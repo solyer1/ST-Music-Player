@@ -191,6 +191,35 @@ export async function triggerMusic(songTitle = null, deviceName = null, mood = n
                 if (targetTrack) break;
             }
         }
+        // Check if user placed an audio file into the extension's music directory
+        if (!targetTrack) {
+            const baseExtUrl = '/scripts/extensions/third-party/sillytavern-rp-music/music';
+            const cleanName = encodeURIComponent(queryForSpotify.trim());
+            const fileCandidates = [
+                `${baseExtUrl}/${activeDevice}/${cleanName}.mp3`,
+                `${baseExtUrl}/${activeDevice}/${cleanName}.ogg`,
+                `${baseExtUrl}/${activeDevice}/${cleanName}.wav`,
+                `${baseExtUrl}/Radio/${cleanName}.mp3`,
+                `${baseExtUrl}/iPod/${cleanName}.mp3`,
+                `${baseExtUrl}/Speaker/${cleanName}.mp3`
+            ];
+            for (const cand of fileCandidates) {
+                try {
+                    const head = await fetch(cand, { method: 'HEAD' });
+                    if (head.ok) {
+                        targetTrack = {
+                            id: `local_${Date.now()}`,
+                            title: queryForSpotify.trim(),
+                            artist: artistForSpotify || 'Local File',
+                            url: cand,
+                            duration: 240,
+                            isSpotify: false
+                        };
+                        break;
+                    }
+                } catch (_) {}
+            }
+        }
     }
 
     // --- 3. Zero-Config Public Search (Discovers real Artist, Album Art & Preview Stream) ---
@@ -218,13 +247,12 @@ export async function triggerMusic(songTitle = null, deviceName = null, mood = n
         targetTrack = selectTrackForDevice(activeDevice, mood);
     }
 
-    // Resolve full-length in-browser audio stream so user never has to open Spotify!
-    if (targetTrack && !targetTrack.isSpotify && !targetTrack.url) {
+    // Resolve YouTube video ID so the user can 1-click launch full song
+    if (targetTrack && !targetTrack.isSpotify && !targetTrack.youtubeId) {
         const fullQuery = `${targetTrack.title} ${targetTrack.artist || ''} lyrics`.trim();
         const yt = await fetchYouTubeVideoId(fullQuery);
         if (yt) {
             targetTrack.youtubeId = yt.videoId;
-            targetTrack.url = `https://invidious.projectsegfau.lt/latest_version?id=${yt.videoId}&itag=140`;
         }
     }
 
