@@ -113,7 +113,7 @@ export async function triggerMusic(songTitle = null, deviceName = null, mood = n
         targetTrack = localCandidate;
     }
 
-    // --- 1. Hybrid Mode: Attempt Spotify Playback first if enabled ---
+    // --- 1. Attempt Spotify Playback first if enabled ---
     if (settings.spotifyEnabled && settings.spotifyAccessToken) {
         console.log(`[RP-Music] Attempting Spotify search for "${queryForSpotify}" (Artist: ${artistForSpotify || 'any'})`);
         const spotifyResult = await searchSpotifyTrack(queryForSpotify, artistForSpotify);
@@ -148,27 +148,45 @@ export async function triggerMusic(songTitle = null, deviceName = null, mood = n
                 updateUI(runtimeState);
                 return;
             } else {
-                // Playback route via Spotify Connect failed, but keep full track metadata, embed ID & album art!
-                targetTrack = {
-                    id: spotifyResult.id,
-                    title: spotifyResult.title,
-                    artist: spotifyResult.artist,
-                    album: spotifyResult.album,
-                    albumArt: spotifyResult.albumArt,
-                    duration: spotifyResult.duration,
-                    uri: spotifyResult.uri,
-                    genre: spotifyResult.genre || 'Music',
-                    isSpotify: false,
-                    spotifyId: spotifyResult.id,
-                    externalUrl: spotifyResult.externalUrl
-                };
+                // If user selected Spotify (or Spotify Only), DO NOT downgrade to a 30s preview snippet!
+                if (settings.audioSource === 'spotify') {
+                    targetTrack = {
+                        id: spotifyResult.id,
+                        title: spotifyResult.title,
+                        artist: spotifyResult.artist,
+                        album: spotifyResult.album,
+                        albumArt: spotifyResult.albumArt,
+                        duration: spotifyResult.duration,
+                        uri: spotifyResult.uri,
+                        genre: spotifyResult.genre || 'Music',
+                        isSpotify: true,
+                        spotifyId: spotifyResult.id,
+                        externalUrl: spotifyResult.externalUrl
+                    };
 
-                // Fetch audio stream preview so audio plays immediately in background
-                const publicMatch = await fetchPublicTrackMetadata(spotifyResult.title, spotifyResult.artist);
-                if (publicMatch && publicMatch.previewUrl) {
-                    targetTrack.previewUrl = publicMatch.previewUrl;
+                    stopTrack();
+
+                    runtimeState.currentSong = targetTrack;
+                    runtimeState.currentDevice = activeDevice;
+                    runtimeState.isPlaying = false;
+                    runtimeState.duration = targetTrack.duration;
+                    runtimeState.currentTime = 0;
+
+                    recordSongPlay(targetTrack, activeDevice);
+                    updatePromptInjection(false);
+                    showChatNowPlayingCard(targetTrack, activeDevice);
+                    updateUI(runtimeState);
+                    return;
                 }
+
+                // In hybrid mode without active Spotify player, fall through to local presets or synth
+                console.warn('[RP-Music] Spotify Connect playback did not start, falling back to local presets...');
             }
+        } else if (settings.audioSource === 'spotify') {
+            if (typeof toastr !== 'undefined') {
+                toastr.warning(`Could not find "${queryForSpotify}" on Spotify.`, 'RP World Music');
+            }
+            return;
         }
     }
 
@@ -223,7 +241,7 @@ export async function triggerMusic(songTitle = null, deviceName = null, mood = n
     }
 
     // --- 3. Zero-Config Public Search (Discovers real Artist, Album Art & Preview Stream) ---
-    if (!targetTrack && queryForSpotify) {
+    if (!targetTrack && queryForSpotify && settings.audioSource !== 'spotify') {
         const publicMatch = await fetchPublicTrackMetadata(queryForSpotify, artistForSpotify);
         if (publicMatch) {
             targetTrack = publicMatch;
@@ -297,7 +315,7 @@ export function togglePlayPause() {
         runtimeState.isPlaying = false;
     } else {
         if (runtimeState.currentSong?.isSpotify) {
-            resumeSpotify();
+            resumeSpotify(runtimeState.currentSong?.uri);
             runtimeState.isPlaying = true;
         } else {
             resumeTrack();
