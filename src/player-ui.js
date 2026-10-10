@@ -349,6 +349,7 @@ export function showChatNowPlayingCard(track, deviceName) {
     if (!track) return;
     const settings = getSettings();
     if (!settings.showChatNotifications) return;
+    if (!runtimeState.isPlaying) return;
 
     const sourceTag = track.isSpotify ? ' [Spotify]' : '';
     if (typeof toastr !== 'undefined') {

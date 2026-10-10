@@ -306,7 +306,7 @@ export function triggerStopMusic(deviceName = null) {
 /**
  * Pause / Resume toggle
  */
-export function togglePlayPause() {
+export async function togglePlayPause() {
     if (runtimeState.isPlaying) {
         if (runtimeState.currentSong?.isSpotify) {
             pauseSpotify();
@@ -315,7 +315,12 @@ export function togglePlayPause() {
         runtimeState.isPlaying = false;
     } else {
         if (runtimeState.currentSong?.isSpotify) {
-            resumeSpotify(runtimeState.currentSong?.uri);
+            const ok = await resumeSpotify(runtimeState.currentSong?.uri);
+            if (!ok && runtimeState.currentSong?.uri && typeof window !== 'undefined') {
+                try {
+                    window.location.href = runtimeState.currentSong.uri;
+                } catch (_) {}
+            }
             runtimeState.isPlaying = true;
         } else {
             resumeTrack();
