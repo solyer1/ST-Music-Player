@@ -199,11 +199,14 @@ export async function searchSpotifyTrack(query, targetArtist = null) {
             ? `${cleanQuery} ${artistFilter}` 
             : cleanQuery;
 
-        const response = await fetch(`${SPOTIFY_CONFIG.API_BASE}/search?q=${encodeURIComponent(searchQuery)}&type=track&limit=20`, {
+        const response = await fetch(`${SPOTIFY_CONFIG.API_BASE}/search?q=${encodeURIComponent(searchQuery)}&type=track&limit=10`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
-        if (!response.ok) return null;
+        if (!response.ok) {
+            console.warn(`[RP-Music] Spotify search returned HTTP ${response.status}:`, await response.text().catch(() => ''));
+            return null;
+        }
 
         const data = await response.json();
         const items = data.tracks?.items || [];
@@ -380,13 +383,83 @@ export async function playSpotifyUri(uri) {
     if (!token) return false;
 
     try {
-        // 1. If in-browser SDK is ready, target it directly so audio plays inside SillyTavern
-        const targetDeviceId = webPlayerDeviceId || null;
-        const playUrl = targetDeviceId 
-            ? `${SPOTIFY_CONFIG.API_BASE}/me/player/play?device_id=${targetDeviceId}`
-            : `${SPOTIFY_CONFIG.API_BASE}/me/player/play`;
+        const settings = getSettings();
+        const devices = await getSpotifyDevices();
+        console.log('[RP-Music] Available Spotify Connect devices:', devices.map(d => `${d.name} (${d.type}) [active=${d.is_active}]`));
 
-        let response = await fetch(playUrl, {
+        // Prioritize devices:
+        // 1. Explicitly configured device in settings
+        // 2. Currently active native device (Computer, Smartphone, Speaker)
+        // 3. Any native device (e.g. desktop Spotify app on PC)
+        // 4. Any active device (e.g. in-browser Web Player)
+        // 5. In-browser Web Player (webPlayerDeviceId)
+        // 6. Any other detected device
+        const candidates = [];
+
+        if (settings.spotifyDeviceId) {
+            const userChoice = devices.find(d => d.id === settings.spotifyDeviceId);
+            if (userChoice) candidates.push(userChoice);
+        }
+
+        // Active native apps
+        for (const d of devices) {
+            if (d.is_active && !d.name.includes('SillyTavern') && !candidates.some(c => c.id === d.id)) {
+                candidates.push(d);
+            }
+        }
+
+        // Native apps (e.g. Spotify Desktop / Mobile)
+        for (const d of devices) {
+            if (!d.name.includes('SillyTavern') && !candidates.some(c => c.id === d.id)) {
+                candidates.push(d);
+            }
+        }
+
+        // Active devices (including web player if active)
+        for (const d of devices) {
+            if (d.is_active && !candidates.some(c => c.id === d.id)) {
+                candidates.push(d);
+            }
+        }
+
+        // In-browser Web Player
+        if (webPlayerDeviceId && !candidates.some(c => c.id === webPlayerDeviceId)) {
+            const webDev = devices.find(d => d.id === webPlayerDeviceId);
+            if (webDev) candidates.push(webDev);
+        }
+
+        // Remaining devices
+        for (const d of devices) {
+            if (!candidates.some(c => c.id === d.id)) {
+                candidates.push(d);
+            }
+        }
+
+        console.log('[RP-Music] Candidate Spotify playback devices in order:', candidates.map(d => `${d.name} (${d.type}) [id=${d.id.slice(0, 8)}]`));
+
+        // Try playing on candidate devices in priority order
+        for (const dev of candidates) {
+            console.log(`[RP-Music] Attempting playback on: ${dev.name} (${dev.id})`);
+            const playRes = await fetch(`${SPOTIFY_CONFIG.API_BASE}/me/player/play?device_id=${dev.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ uris: [uri] })
+            });
+
+            if (playRes.ok || playRes.status === 204) {
+                console.log(`[RP-Music] 🎵 Spotify playback started successfully on: ${dev.name}`);
+                settings.spotifyDeviceId = dev.id;
+                return true;
+            }
+
+            console.warn(`[RP-Music] Playback on ${dev.name} returned HTTP ${playRes.status}, trying next device...`);
+        }
+
+        // General player endpoint fallback (if no specific device succeeded)
+        const generalRes = await fetch(`${SPOTIFY_CONFIG.API_BASE}/me/player/play`, {
             method: 'PUT',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -395,27 +468,44 @@ export async function playSpotifyUri(uri) {
             body: JSON.stringify({ uris: [uri] })
         });
 
-        // 2. If 404 (No active device), find any open/idle Spotify device and transfer playback to it
-        if (response.status === 404) {
-            const devices = await getSpotifyDevices();
-            if (devices && devices.length > 0) {
-                const target = devices.find(d => d.is_active) || devices.find(d => !d.is_restricted) || devices[0];
-                if (target) {
-                    console.log(`[RP-Music] Auto-targeting Spotify device: ${target.name} (${target.id})`);
-                    response = await fetch(`${SPOTIFY_CONFIG.API_BASE}/me/player/play?device_id=${target.id}`, {
-                        method: 'PUT',
-                        headers: {
-                            'Authorization': `Bearer ${token}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ uris: [uri] })
-                    });
+        if (generalRes.ok || generalRes.status === 204) {
+            console.log('[RP-Music] 🎵 Spotify playback started via default player endpoint.');
+            return true;
+        }
+
+        // Final attempt: transfer playback to first candidate and trigger play
+        if (candidates.length > 0) {
+            const firstDev = candidates[0];
+            console.log(`[RP-Music] Attempting transfer playback to: ${firstDev.name}`);
+            const transferRes = await fetch(`${SPOTIFY_CONFIG.API_BASE}/me/player`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ device_ids: [firstDev.id], play: true })
+            });
+
+            if (transferRes.ok || transferRes.status === 204) {
+                await new Promise(r => setTimeout(r, 350));
+                const retryRes = await fetch(`${SPOTIFY_CONFIG.API_BASE}/me/player/play?device_id=${firstDev.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ uris: [uri] })
+                });
+
+                if (retryRes.ok || retryRes.status === 204) {
+                    console.log(`[RP-Music] 🎵 Spotify playback started after transfer on: ${firstDev.name}`);
+                    settings.spotifyDeviceId = firstDev.id;
+                    return true;
                 }
             }
         }
 
-        // Return whether Connect API started playback successfully
-        return response.ok || response.status === 204;
+        return false;
     } catch (err) {
         console.error('[RP-Music] Spotify play command failed:', err);
         return false;
@@ -429,8 +519,11 @@ export async function pauseSpotify() {
     const token = await getValidAccessToken();
     if (!token) return false;
 
+    const settings = getSettings();
+    const devParam = settings.spotifyDeviceId ? `?device_id=${settings.spotifyDeviceId}` : '';
+
     try {
-        const res = await fetch(`${SPOTIFY_CONFIG.API_BASE}/me/player/pause`, {
+        const res = await fetch(`${SPOTIFY_CONFIG.API_BASE}/me/player/pause${devParam}`, {
             method: 'PUT',
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -447,8 +540,11 @@ export async function resumeSpotify() {
     const token = await getValidAccessToken();
     if (!token) return false;
 
+    const settings = getSettings();
+    const devParam = settings.spotifyDeviceId ? `?device_id=${settings.spotifyDeviceId}` : '';
+
     try {
-        const res = await fetch(`${SPOTIFY_CONFIG.API_BASE}/me/player/play`, {
+        const res = await fetch(`${SPOTIFY_CONFIG.API_BASE}/me/player/play${devParam}`, {
             method: 'PUT',
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -465,9 +561,12 @@ export async function setSpotifyVolume(vol) {
     const token = await getValidAccessToken();
     if (!token) return false;
 
+    const settings = getSettings();
+    const devParam = settings.spotifyDeviceId ? `&device_id=${settings.spotifyDeviceId}` : '';
     const percent = Math.round(Math.max(0, Math.min(1, vol)) * 100);
+
     try {
-        await fetch(`${SPOTIFY_CONFIG.API_BASE}/me/player/volume?volume_percent=${percent}`, {
+        await fetch(`${SPOTIFY_CONFIG.API_BASE}/me/player/volume?volume_percent=${percent}${devParam}`, {
             method: 'PUT',
             headers: { 'Authorization': `Bearer ${token}` }
         });
