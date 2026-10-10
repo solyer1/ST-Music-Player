@@ -95,10 +95,10 @@ export function detectMusicAction(text) {
 
     // A. Explicit "Song by Artist" or "Song ของ Artist" pattern
     const byPatterns = [
-        // English: (play|listen to|put on|cues up|playing) [Title] [optional period] by [Artist]
-        /(?:play|plays|playing|played|put on|puts on|listen to|listens to|listening to|cue up|cues up|crank up)\s+(?:a song called\s+|the song\s+)?["'“]?([^\n*"’.,!?]+?)["'”]?\s*[.,]?\s+by\s+["'“]?([A-Za-z0-9\s'.-]+?)["'”]?(?:\s+(?:on|through|from|with)\s+(?:my|the|his|her)?\s*(?:ipod|phone|radio|cassette|speaker|walkman|vinyl|stereo)|[.,!?*]|$)/i,
-        // Thai: (เปิดเพลง|เล่นเพลง|ฟังเพลง) [Title] (ของ|by) [Artist]
-        /(?:เปิดเพลง|เล่นเพลง|ฟังเพลง)\s*(?:ชื่อ\s*)?["'“]?([^\n*"’.,!?]+?)["'”]?\s*(?:ของ|by)\s*["'“]?([^\n*"’.,!?]+?)["'”]?(?:\s*(?:ใน|จาก|ด้วย|บน|ที่)?\s*(?:ลำโพง|วิทยุ|ไอพอด|โทรศัพท์|เทป|แผ่นเสียง)|[.,!?*]|$)/i,
+        // English: [optional turn on device and] (play|listen to|put on|cues up|playing) [Title] by [Artist]
+        /(?:(?:turn on|turns on|switch on|switches on|crank up)\s+(?:my|the|his|her)?\s*(?:ipod|phone|radio|cassette|speaker|walkman|vinyl|stereo)\s*(?:and\s+)?)?(?:play|plays|playing|played|put on|puts on|listen to|listens to|listening to|cue up|cues up|crank up)\s+(?:a song called\s+|the song\s+)?["'“]?([^\n*"’]+?)(?:["'”]|[.,])?\s+by\s+["'“]?([A-Za-z0-9\s'.-]+?)["'”]?(?:\s+(?:on|through|from|with)\s+(?:my|the|his|her)?\s*(?:ipod|phone|radio|cassette|speaker|walkman|vinyl|stereo)|[.,!?*]|$)/i,
+        // Thai: [optional เปิดอุปกรณ์] (เปิดเพลง|เล่นเพลง|ฟังเพลง) [Title] (ของ|by) [Artist]
+        /(?:(?:เปิด|สลับ|กดเปิด)\s*(?:ลำโพง|วิทยุ|ไอพอด|โทรศัพท์|เครื่องเล่น|เทป|แผ่นเสียง)\s*(?:แล้ว|และ)?\s*)?(?:เปิดเพลง|เล่นเพลง|ฟังเพลง)\s*(?:ชื่อ\s*)?["'“]?([^\n*"’]+?)(?:["'”]|[.,])?\s+(?:ของ|\bby\b)\s+["'“]?([^\n*"’]+?)["'”]?(?:\s*(?:ใน|จาก|ด้วย|บน|ที่)?\s*(?:ลำโพง|วิทยุ|ไอพอด|โทรศัพท์|เทป|แผ่นเสียง)|[.,!?*]|$)/i,
         // Quoted: "Title" by Artist
         /["'“]([^"'”]+)["'”]\s+by\s+["'“]?([A-Za-z0-9\s'.-]+?)["'”]?/i
     ];
@@ -106,8 +106,8 @@ export function detectMusicAction(text) {
     for (const pattern of byPatterns) {
         const match = normalizedText.match(pattern);
         if (match && match[1] && match[2]) {
-            extractedSongTitle = match[1].trim();
-            extractedArtist = capitalizeWords(match[2].trim());
+            extractedSongTitle = match[1].trim().replace(/[.,;]+$/, '').trim();
+            extractedArtist = capitalizeWords(match[2].trim().replace(/[.,;]+$/, '').trim());
             break;
         }
     }
@@ -190,6 +190,11 @@ export function detectMusicAction(text) {
                 extractedSongTitle = parts[1].trim();
             }
         }
+        extractedSongTitle = extractedSongTitle.replace(/^[.,;:'"]+|[.,;:'"]+$/g, '').trim();
+    }
+
+    if (extractedArtist) {
+        extractedArtist = extractedArtist.replace(/^[.,;:'"]+|[.,;:'"]+$/g, '').trim();
     }
 
     if (matchedTrack && !extractedArtist) {
