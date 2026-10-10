@@ -3,7 +3,7 @@
  */
 
 import { getContext, getSettings, runtimeState, recordSongPlay } from './state.js';
-import { playTrack, stopTrack, pauseTrack, resumeTrack, setVolume as setLocalVolume } from './audio-engine.js';
+import { playTrack, stopTrack, stopLocalAudio, pauseTrack, resumeTrack, setVolume as setLocalVolume } from './audio-engine.js';
 import { updatePromptInjection } from './prompt-injector.js';
 import { selectTrackForDevice } from './detector.js';
 import { showChatNowPlayingCard, updateUI } from './player-ui.js';
@@ -130,11 +130,13 @@ export async function triggerMusic(songTitle = null, deviceName = null, mood = n
                     duration: spotifyResult.duration,
                     uri: spotifyResult.uri,
                     genre: spotifyResult.genre || 'Music',
-                    isSpotify: true
+                    isSpotify: true,
+                    spotifyId: spotifyResult.id,
+                    externalUrl: spotifyResult.externalUrl
                 };
 
-                // Stop any playing local audio
-                stopTrack();
+                // Stop any playing local HTML5 audio or synth without wiping Spotify state
+                stopLocalAudio();
 
                 runtimeState.currentSong = targetTrack;
                 runtimeState.currentDevice = activeDevice;
@@ -164,7 +166,7 @@ export async function triggerMusic(songTitle = null, deviceName = null, mood = n
                         externalUrl: spotifyResult.externalUrl
                     };
 
-                    stopTrack();
+                    stopLocalAudio();
 
                     runtimeState.currentSong = targetTrack;
                     runtimeState.currentDevice = activeDevice;

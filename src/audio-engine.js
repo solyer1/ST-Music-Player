@@ -21,11 +21,13 @@ export function initAudioEngine() {
     audioElement.preload = 'metadata';
 
     audioElement.addEventListener('play', () => {
+        if (runtimeState.currentSong?.isSpotify) return;
         runtimeState.isPlaying = true;
         notifyStateChange('play');
     });
 
     audioElement.addEventListener('pause', () => {
+        if (runtimeState.currentSong?.isSpotify) return;
         if (!isSynthPlaying) {
             runtimeState.isPlaying = false;
             notifyStateChange('pause');
@@ -33,11 +35,13 @@ export function initAudioEngine() {
     });
 
     audioElement.addEventListener('ended', () => {
+        if (runtimeState.currentSong?.isSpotify) return;
         runtimeState.isPlaying = false;
         notifyStateChange('ended');
     });
 
     audioElement.addEventListener('timeupdate', () => {
+        if (runtimeState.currentSong?.isSpotify) return;
         if (!isSynthPlaying) {
             runtimeState.currentTime = audioElement.currentTime;
             runtimeState.duration = audioElement.duration || (runtimeState.currentSong?.duration || 180);
@@ -46,6 +50,7 @@ export function initAudioEngine() {
     });
 
     audioElement.addEventListener('error', (e) => {
+        if (runtimeState.currentSong?.isSpotify) return;
         console.warn('[RP-Music] Audio stream error, checking fallback options:', e);
         const currentSong = runtimeState.currentSong;
         if (currentSong?.previewUrl && audioElement.src !== currentSong.previewUrl) {
@@ -138,12 +143,26 @@ export function resumeTrack() {
 }
 
 /**
+ * Stop local audio element and synth without clobbering runtime state or notifying stop
+ * Used when switching to Spotify Connect playback
+ */
+export function stopLocalAudio() {
+    if (audioElement) {
+        audioElement.pause();
+        audioElement.removeAttribute('src');
+        audioElement.load();
+    }
+    stopSynth();
+}
+
+/**
  * Stop playback completely
  */
 export function stopTrack() {
     if (audioElement) {
         audioElement.pause();
-        audioElement.currentTime = 0;
+        audioElement.removeAttribute('src');
+        audioElement.load();
     }
     stopSynth();
     runtimeState.isPlaying = false;

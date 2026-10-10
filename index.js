@@ -3,16 +3,16 @@
  * Immersive in-world music system for SillyTavern roleplay (Hybrid: Spotify + Local Audio)
  */
 
-import { MODULE_NAME } from './src/constants.js?v=1.0.3';
-import { setContext, initSettings, getSettings, loadChatState, runtimeState } from './src/state.js?v=1.0.3';
-import { initAudioEngine } from './src/audio-engine.js?v=1.0.3';
-import { detectMusicAction } from './src/detector.js?v=1.0.3';
-import { reasonMusicIntentWithLlm } from './src/llm-reasoner.js?v=1.0.3';
-import { triggerMusic, triggerStopMusic, registerSlashCommands } from './src/commands.js?v=1.0.3';
-import { initPlayerUI } from './src/player-ui.js?v=1.0.3';
-import { initSettingsUI } from './src/settings-ui.js?v=1.0.3';
-import { updatePromptInjection } from './src/prompt-injector.js?v=1.0.3';
-import { handleSpotifyCallback, initSpotifyWebPlayer } from './src/spotify-service.js?v=1.0.3';
+import { MODULE_NAME } from './src/constants.js?v=1.0.4';
+import { setContext, initSettings, getSettings, loadChatState, runtimeState } from './src/state.js?v=1.0.4';
+import { initAudioEngine } from './src/audio-engine.js?v=1.0.4';
+import { detectMusicAction } from './src/detector.js?v=1.0.4';
+import { reasonMusicIntentWithLlm } from './src/llm-reasoner.js?v=1.0.4';
+import { triggerMusic, triggerStopMusic, registerSlashCommands } from './src/commands.js?v=1.0.4';
+import { initPlayerUI } from './src/player-ui.js?v=1.0.4';
+import { initSettingsUI } from './src/settings-ui.js?v=1.0.4';
+import { updatePromptInjection } from './src/prompt-injector.js?v=1.0.4';
+import { handleSpotifyCallback, initSpotifyWebPlayer } from './src/spotify-service.js?v=1.0.4';
 
 /**
  * Main initialization routine
@@ -60,8 +60,9 @@ async function initializeExtension() {
         return;
     }
 
-    // Deduplication tracker to avoid double-triggering across multiple lifecycle events
+    // Deduplication tracker & concurrency mutex to avoid double-triggering across multiple lifecycle events
     let lastProcessedTurnKey = null;
+    let isTurnProcessing = false;
 
     /**
      * Unified music trigger evaluator for roleplay turns
@@ -104,6 +105,10 @@ async function initializeExtension() {
 
         if (!userMsg && !aiMsg) return;
 
+        if (isTurnProcessing) {
+            return;
+        }
+
         // Create turn fingerprint for deduplication
         const turnKey = `${userMsg?.send_date || userMsg?.mes?.slice(0, 30) || ''}_${aiMsg?.send_date || aiMsg?.mes?.slice(0, 30) || ''}_${aiMsg?.swipe_id ?? 0}`;
         if (turnKey === lastProcessedTurnKey) {
@@ -117,50 +122,54 @@ async function initializeExtension() {
             return;
         }
 
-        let detected = null;
-
-        // 1. If LLM Provider Reasoning is enabled and generation has completed
-        if (settings.useLlmReasoning !== false && isAfterResponse) {
-            try {
-                detected = await reasonMusicIntentWithLlm({
-                    userMessage: userMsg?.mes,
-                    characterMessage: aiMsg?.mes
-                });
-            } catch (err) {
-                console.warn('[RP-Music] LLM reasoning error, falling back to regex:', err);
-            }
-        }
-
-        // 2. Fall back to regex detection (check user message first, then AI reply)
-        if (!detected || detected.action === 'none') {
-            if (userMsg && userMsg.mes) {
-                const regexUser = detectMusicAction(userMsg.mes);
-                if (regexUser && regexUser.action !== 'none') {
-                    detected = regexUser;
-                }
-            }
-            if ((!detected || detected.action === 'none') && aiMsg && aiMsg.mes) {
-                const regexAi = detectMusicAction(aiMsg.mes);
-                if (regexAi && regexAi.action !== 'none') {
-                    detected = regexAi;
-                }
-            }
-        }
-
-        // If no action found, record key so we don't re-run expensive checks on the same turn
-        if (!detected || detected.action === 'none') {
-            lastProcessedTurnKey = turnKey;
-            return;
-        }
-
+        // Claim turn key and set mutex lock synchronously BEFORE any async calls
         lastProcessedTurnKey = turnKey;
+        isTurnProcessing = true;
 
-        if (detected.action === 'play') {
-            console.log('[RP-Music] 🎵 Executing RP music play action (after response):', detected);
-            await triggerMusic(detected.songTitle, detected.device, detected.mood, detected.artist);
-        } else if (detected.action === 'stop') {
-            console.log('[RP-Music] ⏹️ Executing RP music stop action (after response):', detected);
-            triggerStopMusic(detected.device);
+        try {
+            let detected = null;
+
+            // 1. If LLM Provider Reasoning is enabled and generation has completed
+            if (settings.useLlmReasoning !== false && isAfterResponse) {
+                try {
+                    detected = await reasonMusicIntentWithLlm({
+                        userMessage: userMsg?.mes,
+                        characterMessage: aiMsg?.mes
+                    });
+                } catch (err) {
+                    console.warn('[RP-Music] LLM reasoning error, falling back to regex:', err);
+                }
+            }
+
+            // 2. Fall back to regex detection (check user message first, then AI reply)
+            if (!detected || detected.action === 'none') {
+                if (userMsg && userMsg.mes) {
+                    const regexUser = detectMusicAction(userMsg.mes);
+                    if (regexUser && regexUser.action !== 'none') {
+                        detected = regexUser;
+                    }
+                }
+                if ((!detected || detected.action === 'none') && aiMsg && aiMsg.mes) {
+                    const regexAi = detectMusicAction(aiMsg.mes);
+                    if (regexAi && regexAi.action !== 'none') {
+                        detected = regexAi;
+                    }
+                }
+            }
+
+            if (!detected || detected.action === 'none') {
+                return;
+            }
+
+            if (detected.action === 'play') {
+                console.log('[RP-Music] 🎵 Executing RP music play action (after response):', detected);
+                await triggerMusic(detected.songTitle, detected.device, detected.mood, detected.artist);
+            } else if (detected.action === 'stop') {
+                console.log('[RP-Music] ⏹️ Executing RP music stop action (after response):', detected);
+                triggerStopMusic(detected.device);
+            }
+        } finally {
+            isTurnProcessing = false;
         }
     }
 
@@ -169,16 +178,14 @@ async function initializeExtension() {
         eventSource.on(eventTypes.CHARACTER_MESSAGE_RENDERED, async (messageId) => {
             await handleChatTurnMusicCheck({ isAfterResponse: true, messageId });
         });
-    }
-
-    // A2. Backup post-response trigger for environments where MESSAGE_RECEIVED fires
-    if (eventTypes.MESSAGE_RECEIVED) {
+    } else if (eventTypes.MESSAGE_RECEIVED) {
+        // Fallback ONLY if CHARACTER_MESSAGE_RENDERED is not available
         eventSource.on(eventTypes.MESSAGE_RECEIVED, async (messageId) => {
             await handleChatTurnMusicCheck({ isAfterResponse: true, messageId });
         });
     }
 
-    // A3. User message sent (for regex-only mode when LLM reasoning is disabled)
+    // A2. User message sent (for regex-only mode when LLM reasoning is disabled)
     eventSource.on(eventTypes.MESSAGE_SENT, async () => {
         const settings = getSettings();
         if (settings.useLlmReasoning === false) {

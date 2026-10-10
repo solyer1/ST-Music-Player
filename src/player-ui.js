@@ -9,6 +9,38 @@ import { nextTrack, prevTrack, togglePlayPause, setUnifiedVolume } from './comma
 
 let playerElement = null;
 let isDraggingSeek = false;
+let spotifyProgressInterval = null;
+
+function ensureSpotifyProgressTimer() {
+    if (spotifyProgressInterval) return;
+    spotifyProgressInterval = setInterval(() => {
+        if (runtimeState.isPlaying && runtimeState.currentSong?.isSpotify) {
+            const dur = runtimeState.duration || (runtimeState.currentSong?.duration || 180);
+            if (runtimeState.currentTime < dur) {
+                runtimeState.currentTime += 1;
+            }
+            if (!isDraggingSeek) {
+                const cur = runtimeState.currentTime;
+                const percent = dur > 0 ? (cur / dur) * 100 : 0;
+                const seekSlider = document.getElementById('rp-seek-slider');
+                const timeCurrentEl = document.getElementById('rp-time-current');
+                const timeDurationEl = document.getElementById('rp-time-duration');
+                if (seekSlider) seekSlider.value = percent;
+                if (timeCurrentEl) timeCurrentEl.textContent = formatTime(cur);
+                if (timeDurationEl) timeDurationEl.textContent = formatTime(dur);
+            }
+        } else {
+            stopSpotifyProgressTimer();
+        }
+    }, 1000);
+}
+
+function stopSpotifyProgressTimer() {
+    if (spotifyProgressInterval) {
+        clearInterval(spotifyProgressInterval);
+        spotifyProgressInterval = null;
+    }
+}
 
 /**
  * Initializes and injects the music player widget into the SillyTavern UI
@@ -259,6 +291,7 @@ export function updateUI(state, type) {
 
         // In-Browser Embedded Spotify Widget for Mobile & PC
         const embedBox = document.getElementById('rp-spotify-embed-box');
+        const embedIframe = document.getElementById('rp-spotify-embed-iframe');
         const openLink = document.getElementById('rp-spotify-open-link');
         const spotifyId = song.spotifyId || (song.isSpotify ? song.id : null);
         const externalUrl = song.externalUrl || (spotifyId ? `https://open.spotify.com/track/${spotifyId}` : null);
@@ -283,8 +316,10 @@ export function updateUI(state, type) {
         }
 
 
-        // 2. Spotify Embed Widget
-        if (spotifyId && !song.youtubeId) {
+        // 2. Spotify Embed Widget (Only for preview mode; hidden when Spotify Connect is active)
+        if (song.isSpotify) {
+            if (embedBox) embedBox.style.display = 'none';
+        } else if (spotifyId && !song.youtubeId) {
             if (embedBox && embedIframe) {
                 const targetSrc = `https://open.spotify.com/embed/track/${spotifyId}?utm_source=generator&theme=0`;
                 if (!embedIframe.src || !embedIframe.src.includes(spotifyId)) {
@@ -323,11 +358,17 @@ export function updateUI(state, type) {
         playerElement.classList.add('is-playing');
         pillDiscIcon?.classList.add('spinning');
         vinylGraphic?.classList.add('spinning');
+        if (song?.isSpotify) {
+            ensureSpotifyProgressTimer();
+        } else {
+            stopSpotifyProgressTimer();
+        }
     } else {
         playIconEl.className = 'fa-solid fa-play';
         playerElement.classList.remove('is-playing');
         pillDiscIcon?.classList.remove('spinning');
         vinylGraphic?.classList.remove('spinning');
+        stopSpotifyProgressTimer();
     }
 
     // Time & Progress Slider
