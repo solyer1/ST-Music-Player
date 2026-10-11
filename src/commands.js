@@ -119,7 +119,7 @@ export async function triggerMusic(songTitle = null, deviceName = null, mood = n
         const spotifyResult = await searchSpotifyTrack(queryForSpotify, artistForSpotify);
 
         if (spotifyResult) {
-            const played = await playSpotifyUri(spotifyResult.uri);
+            const played = await playSpotifyUri(spotifyResult.uri, spotifyResult.albumUri);
             if (played) {
                 targetTrack = {
                     id: spotifyResult.id,
@@ -129,6 +129,7 @@ export async function triggerMusic(songTitle = null, deviceName = null, mood = n
                     albumArt: spotifyResult.albumArt,
                     duration: spotifyResult.duration,
                     uri: spotifyResult.uri,
+                    albumUri: spotifyResult.albumUri,
                     genre: spotifyResult.genre || 'Music',
                     isSpotify: true,
                     spotifyId: spotifyResult.id,
@@ -160,6 +161,7 @@ export async function triggerMusic(songTitle = null, deviceName = null, mood = n
                         albumArt: spotifyResult.albumArt,
                         duration: spotifyResult.duration,
                         uri: spotifyResult.uri,
+                        albumUri: spotifyResult.albumUri,
                         genre: spotifyResult.genre || 'Music',
                         isSpotify: true,
                         spotifyId: spotifyResult.id,
@@ -317,7 +319,7 @@ export async function togglePlayPause() {
         runtimeState.isPlaying = false;
     } else {
         if (runtimeState.currentSong?.isSpotify) {
-            const ok = await resumeSpotify(runtimeState.currentSong?.uri);
+            const ok = await resumeSpotify(runtimeState.currentSong?.uri, runtimeState.currentSong?.albumUri);
             if (!ok && runtimeState.currentSong?.uri && typeof window !== 'undefined') {
                 try {
                     window.location.href = runtimeState.currentSong.uri;

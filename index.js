@@ -3,16 +3,16 @@
  * Immersive in-world music system for SillyTavern roleplay (Hybrid: Spotify + Local Audio)
  */
 
-import { MODULE_NAME } from './src/constants.js?v=1.0.5';
-import { setContext, initSettings, getSettings, loadChatState, runtimeState } from './src/state.js?v=1.0.5';
-import { initAudioEngine } from './src/audio-engine.js?v=1.0.5';
-import { detectMusicAction } from './src/detector.js?v=1.0.5';
-import { reasonMusicIntentWithLlm } from './src/llm-reasoner.js?v=1.0.5';
-import { triggerMusic, triggerStopMusic, registerSlashCommands } from './src/commands.js?v=1.0.5';
-import { initPlayerUI } from './src/player-ui.js?v=1.0.5';
-import { initSettingsUI } from './src/settings-ui.js?v=1.0.5';
-import { updatePromptInjection } from './src/prompt-injector.js?v=1.0.5';
-import { handleSpotifyCallback, initSpotifyWebPlayer } from './src/spotify-service.js?v=1.0.5';
+import { MODULE_NAME } from './src/constants.js?v=1.0.6';
+import { setContext, initSettings, getSettings, loadChatState, runtimeState } from './src/state.js?v=1.0.6';
+import { initAudioEngine } from './src/audio-engine.js?v=1.0.6';
+import { detectMusicAction } from './src/detector.js?v=1.0.6';
+import { reasonMusicIntentWithLlm } from './src/llm-reasoner.js?v=1.0.6';
+import { triggerMusic, triggerStopMusic, registerSlashCommands } from './src/commands.js?v=1.0.6';
+import { initPlayerUI } from './src/player-ui.js?v=1.0.6';
+import { initSettingsUI } from './src/settings-ui.js?v=1.0.6';
+import { updatePromptInjection } from './src/prompt-injector.js?v=1.0.6';
+import { handleSpotifyCallback, initSpotifyWebPlayer } from './src/spotify-service.js?v=1.0.6';
 
 /**
  * Main initialization routine

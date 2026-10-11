@@ -295,6 +295,7 @@ export async function searchSpotifyTrack(query, targetArtist = null) {
             album: bestMatch.album.name,
             albumArt: bestMatch.album.images?.[0]?.url || bestMatch.album.images?.[1]?.url || '',
             uri: bestMatch.uri,
+            albumUri: bestMatch.album?.uri || '',
             duration: Math.round(bestMatch.duration_ms / 1000),
             externalUrl: bestMatch.external_urls?.spotify || '',
             genre: genreStr || 'Music'
@@ -387,9 +388,13 @@ export function initSpotifyWebPlayer() {
 /**
  * Send Play Command to active or available Spotify Connect device
  */
-export async function playSpotifyUri(uri) {
+export async function playSpotifyUri(uri, albumUri = null) {
     const token = await getValidAccessToken();
     if (!token) return false;
+
+    const playPayload = albumUri 
+        ? { context_uri: albumUri, offset: { uri } } 
+        : { uris: [uri] };
 
     try {
         const settings = getSettings();
@@ -402,29 +407,63 @@ export async function playSpotifyUri(uri) {
 
         console.log('[RP-Music] Available Spotify Connect devices:', devices.map(d => `${d.name} (${d.type}) [active=${d.is_active}]`));
 
-        // Prioritize devices:
-        // 1. Currently active native app (e.g. desktop Spotify app on PC)
-        // 2. User's chosen device in settings
-        // 3. Any native apps (Spotify Desktop / Mobile)
-        // 4. Currently active devices (e.g. in-browser Web Player)
-        // 5. In-browser Web Player (webPlayerDeviceId)
-        // 6. Remaining devices
-        // Prioritize devices:
-        // 1. Any currently active device (actively playing desktop or web player)
-        // 2. User's chosen device in settings
-        // 3. In-browser Web Player (SillyTavern RP Music) - reliable, always alive in this tab
-        // 4. Any native desktop/mobile apps
-        // 5. Remaining devices
-        const candidates = [];
+        // Helper to verify if playback actually started
+        const verifyPlayback = async (expectedUri = null) => {
+            try {
+                const s = await fetch(`${SPOTIFY_CONFIG.API_BASE}/me/player`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (s.status === 200) {
+                    const data = await s.json();
+                    if (data.is_playing || (expectedUri && data.item?.uri === expectedUri)) {
+                        return data.device?.name || 'Spotify';
+                    }
+                }
+            } catch (_) {}
+            return null;
+        };
 
-        // 1. Currently active devices first
-        for (const d of devices) {
-            if (d.is_active && !candidates.some(c => c.id === d.id)) {
-                candidates.push(d);
+        // 1. If an active device exists (e.g. desktop app or mobile actively playing), target it directly first!
+        // This gives a 100% seamless transition without dropping queues or hopping devices.
+        const activeDev = devices.find(d => d.is_active);
+        if (activeDev) {
+            console.log(`[RP-Music] Active device found (${activeDev.name}). Performing seamless transition...`);
+            const playRes = await fetch(`${SPOTIFY_CONFIG.API_BASE}/me/player/play?device_id=${activeDev.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(playPayload)
+            });
+
+            if (playRes.ok || playRes.status === 204) {
+                let activeName = null;
+                for (let poll = 0; poll < 4; poll++) {
+                    await new Promise(r => setTimeout(r, 600));
+                    activeName = await verifyPlayback(uri);
+                    if (activeName) break;
+                }
+
+                if (activeName) {
+                    console.log(`[RP-Music] 🎵 Spotify playback confirmed playing on active device: ${activeName}`);
+                    settings.spotifyDeviceId = activeDev.id;
+                    saveSettings();
+                    if (typeof toastr !== 'undefined') {
+                        toastr.success(`▶️ Playing on Spotify Connect (${activeName})`, 'RP World Music', { timeOut: 3500 });
+                    }
+                    return true;
+                }
             }
         }
 
-        // 2. User choice from settings (if not duplicate)
+        // 2. Build prioritized candidate list if no active device or active device didn't respond
+        const candidates = [];
+
+        // Active device (if any, already tried once, but included in list)
+        if (activeDev) candidates.push(activeDev);
+
+        // User choice from settings
         if (settings.spotifyDeviceId) {
             const userChoice = devices.find(d => d.id === settings.spotifyDeviceId);
             if (userChoice && !candidates.some(c => c.id === userChoice.id)) {
@@ -432,20 +471,20 @@ export async function playSpotifyUri(uri) {
             }
         }
 
-        // 3. In-browser Web Player (SillyTavern RP Music)
-        if (webPlayerDeviceId && !candidates.some(c => c.id === webPlayerDeviceId)) {
-            const webDev = devices.find(d => d.id === webPlayerDeviceId);
-            if (webDev) candidates.push(webDev);
-        }
-
-        // 4. Native apps (e.g. Spotify Desktop / Mobile)
+        // Native apps (e.g. Spotify Desktop / Mobile)
         for (const d of devices) {
             if (!d.name.includes('SillyTavern') && !candidates.some(c => c.id === d.id)) {
                 candidates.push(d);
             }
         }
 
-        // 5. Remaining devices
+        // In-browser Web Player (SillyTavern RP Music)
+        if (webPlayerDeviceId && !candidates.some(c => c.id === webPlayerDeviceId)) {
+            const webDev = devices.find(d => d.id === webPlayerDeviceId);
+            if (webDev) candidates.push(webDev);
+        }
+
+        // Remaining devices
         for (const d of devices) {
             if (!candidates.some(c => c.id === d.id)) {
                 candidates.push(d);
@@ -454,40 +493,25 @@ export async function playSpotifyUri(uri) {
 
         console.log('[RP-Music] Candidate Spotify playback devices in order:', candidates.map(d => `${d.name} (${d.type}) [id=${d.id.slice(0, 8)}]`));
 
-        // Helper to verify if playback actually started
-        const verifyPlayback = async () => {
-            try {
-                const s = await fetch(`${SPOTIFY_CONFIG.API_BASE}/me/player`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (s.status === 200) {
-                    const data = await s.json();
-                    if (data.is_playing) {
-                        return data.device?.name || 'Spotify';
-                    }
-                }
-            } catch (_) {}
-            return null;
-        };
-
         // Try playing on candidate devices in priority order
         for (const dev of candidates) {
-            console.log(`[RP-Music] Attempting playback on: ${dev.name} (${dev.id})`);
+            if (activeDev && dev.id === activeDev.id) continue; // Already tried in step 1
+
+            console.log(`[RP-Music] Attempting playback on candidate: ${dev.name} (${dev.id})`);
             const playRes = await fetch(`${SPOTIFY_CONFIG.API_BASE}/me/player/play?device_id=${dev.id}`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ uris: [uri] })
+                body: JSON.stringify(playPayload)
             });
 
             if (playRes.ok || playRes.status === 204) {
-                // Poll to allow Spotify Connect cloud status to sync
                 let activeName = null;
-                for (let poll = 0; poll < 3; poll++) {
+                for (let poll = 0; poll < 4; poll++) {
                     await new Promise(r => setTimeout(r, 600));
-                    activeName = await verifyPlayback();
+                    activeName = await verifyPlayback(uri);
                     if (activeName) break;
                 }
 
@@ -522,14 +546,14 @@ export async function playSpotifyUri(uri) {
                             'Authorization': `Bearer ${token}`,
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify({ uris: [uri] })
+                        body: JSON.stringify(playPayload)
                     });
 
                     if (retryRes.ok || retryRes.status === 204) {
                         let activeName = null;
-                        for (let poll = 0; poll < 3; poll++) {
+                        for (let poll = 0; poll < 4; poll++) {
                             await new Promise(r => setTimeout(r, 600));
-                            activeName = await verifyPlayback();
+                            activeName = await verifyPlayback(uri);
                             if (activeName) break;
                         }
                         if (activeName) {
@@ -553,14 +577,14 @@ export async function playSpotifyUri(uri) {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ uris: [uri] })
+            body: JSON.stringify(playPayload)
         });
 
         if (generalRes.ok || generalRes.status === 204) {
             let activeName = null;
             for (let poll = 0; poll < 3; poll++) {
                 await new Promise(r => setTimeout(r, 600));
-                activeName = await verifyPlayback();
+                activeName = await verifyPlayback(uri);
                 if (activeName) break;
             }
             if (activeName) {
@@ -609,7 +633,7 @@ export async function pauseSpotify() {
 /**
  * Resume Spotify playback
  */
-export async function resumeSpotify(uri = null) {
+export async function resumeSpotify(uri = null, albumUri = null) {
     const token = await getValidAccessToken();
     if (!token) return false;
 
@@ -617,7 +641,13 @@ export async function resumeSpotify(uri = null) {
     const devParam = settings.spotifyDeviceId ? `?device_id=${settings.spotifyDeviceId}` : '';
 
     try {
-        const body = uri ? JSON.stringify({ uris: [uri] }) : undefined;
+        let body = undefined;
+        if (uri) {
+            const playPayload = albumUri
+                ? { context_uri: albumUri, offset: { uri } }
+                : { uris: [uri] };
+            body = JSON.stringify(playPayload);
+        }
         const res = await fetch(`${SPOTIFY_CONFIG.API_BASE}/me/player/play${devParam}`, {
             method: 'PUT',
             headers: {
@@ -629,7 +659,7 @@ export async function resumeSpotify(uri = null) {
         if (res.ok || res.status === 204) return true;
 
         if (!uri && runtimeState.currentSong?.uri) {
-            return await resumeSpotify(runtimeState.currentSong.uri);
+            return await resumeSpotify(runtimeState.currentSong.uri, runtimeState.currentSong.albumUri);
         }
         return false;
     } catch (_) {
