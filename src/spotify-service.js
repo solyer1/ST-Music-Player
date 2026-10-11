@@ -409,11 +409,17 @@ export async function playSpotifyUri(uri) {
         // 4. Currently active devices (e.g. in-browser Web Player)
         // 5. In-browser Web Player (webPlayerDeviceId)
         // 6. Remaining devices
+        // Prioritize devices:
+        // 1. Any currently active device (actively playing desktop or web player)
+        // 2. User's chosen device in settings
+        // 3. In-browser Web Player (SillyTavern RP Music) - reliable, always alive in this tab
+        // 4. Any native desktop/mobile apps
+        // 5. Remaining devices
         const candidates = [];
 
-        // 1. Active native apps first
+        // 1. Currently active devices first
         for (const d of devices) {
-            if (d.is_active && !d.name.includes('SillyTavern') && !candidates.some(c => c.id === d.id)) {
+            if (d.is_active && !candidates.some(c => c.id === d.id)) {
                 candidates.push(d);
             }
         }
@@ -426,27 +432,20 @@ export async function playSpotifyUri(uri) {
             }
         }
 
-        // 3. Native apps (e.g. Spotify Desktop / Mobile)
+        // 3. In-browser Web Player (SillyTavern RP Music)
+        if (webPlayerDeviceId && !candidates.some(c => c.id === webPlayerDeviceId)) {
+            const webDev = devices.find(d => d.id === webPlayerDeviceId);
+            if (webDev) candidates.push(webDev);
+        }
+
+        // 4. Native apps (e.g. Spotify Desktop / Mobile)
         for (const d of devices) {
             if (!d.name.includes('SillyTavern') && !candidates.some(c => c.id === d.id)) {
                 candidates.push(d);
             }
         }
 
-        // 4. Other active devices
-        for (const d of devices) {
-            if (d.is_active && !candidates.some(c => c.id === d.id)) {
-                candidates.push(d);
-            }
-        }
-
-        // 5. In-browser Web Player
-        if (webPlayerDeviceId && !candidates.some(c => c.id === webPlayerDeviceId)) {
-            const webDev = devices.find(d => d.id === webPlayerDeviceId);
-            if (webDev) candidates.push(webDev);
-        }
-
-        // 6. Remaining devices
+        // 5. Remaining devices
         for (const d of devices) {
             if (!candidates.some(c => c.id === d.id)) {
                 candidates.push(d);
@@ -484,25 +483,27 @@ export async function playSpotifyUri(uri) {
             });
 
             if (playRes.ok || playRes.status === 204) {
-                // Poll up to 3 times to allow Spotify Connect cloud status to sync
+                // Poll to allow Spotify Connect cloud status to sync
                 let activeName = null;
                 for (let poll = 0; poll < 3; poll++) {
-                    await new Promise(r => setTimeout(r, 500));
+                    await new Promise(r => setTimeout(r, 600));
                     activeName = await verifyPlayback();
                     if (activeName) break;
                 }
 
-                const confirmedName = activeName || dev.name || 'Spotify';
-                console.log(`[RP-Music] 🎵 Spotify playback started on: ${confirmedName}`);
-                settings.spotifyDeviceId = dev.id;
-                saveSettings();
-                if (typeof toastr !== 'undefined') {
-                    toastr.success(`▶️ Playing on Spotify Connect (${confirmedName})`, 'RP World Music', { timeOut: 3500 });
+                if (activeName) {
+                    console.log(`[RP-Music] 🎵 Spotify playback confirmed playing on: ${activeName}`);
+                    settings.spotifyDeviceId = dev.id;
+                    saveSettings();
+                    if (typeof toastr !== 'undefined') {
+                        toastr.success(`▶️ Playing on Spotify Connect (${activeName})`, 'RP World Music', { timeOut: 3500 });
+                    }
+                    return true;
                 }
-                return true;
+                console.warn(`[RP-Music] Device ${dev.name} returned 204, but was not playing. Trying next device...`);
             }
 
-            // If direct play returned an error (e.g. 404 device not found), try explicit transfer with play: true
+            // If direct play didn't start, try explicit transfer with play: true
             try {
                 const transferRes = await fetch(`${SPOTIFY_CONFIG.API_BASE}/me/player`, {
                     method: 'PUT',
@@ -527,18 +528,19 @@ export async function playSpotifyUri(uri) {
                     if (retryRes.ok || retryRes.status === 204) {
                         let activeName = null;
                         for (let poll = 0; poll < 3; poll++) {
-                            await new Promise(r => setTimeout(r, 500));
+                            await new Promise(r => setTimeout(r, 600));
                             activeName = await verifyPlayback();
                             if (activeName) break;
                         }
-                        const confirmedName = activeName || dev.name || 'Spotify';
-                        console.log(`[RP-Music] 🎵 Spotify playback started after transfer on: ${confirmedName}`);
-                        settings.spotifyDeviceId = dev.id;
-                        saveSettings();
-                        if (typeof toastr !== 'undefined') {
-                            toastr.success(`▶️ Playing on Spotify Connect (${confirmedName})`, 'RP World Music', { timeOut: 3500 });
+                        if (activeName) {
+                            console.log(`[RP-Music] 🎵 Spotify playback confirmed after transfer on: ${activeName}`);
+                            settings.spotifyDeviceId = dev.id;
+                            saveSettings();
+                            if (typeof toastr !== 'undefined') {
+                                toastr.success(`▶️ Playing on Spotify Connect (${activeName})`, 'RP World Music', { timeOut: 3500 });
+                            }
+                            return true;
                         }
-                        return true;
                     }
                 }
             } catch (_) {}
@@ -557,16 +559,17 @@ export async function playSpotifyUri(uri) {
         if (generalRes.ok || generalRes.status === 204) {
             let activeName = null;
             for (let poll = 0; poll < 3; poll++) {
-                await new Promise(r => setTimeout(r, 500));
+                await new Promise(r => setTimeout(r, 600));
                 activeName = await verifyPlayback();
                 if (activeName) break;
             }
-            const confirmedName = activeName || 'Spotify';
-            console.log(`[RP-Music] 🎵 Spotify playback started via default player: ${confirmedName}`);
-            if (typeof toastr !== 'undefined') {
-                toastr.success(`▶️ Playing on Spotify Connect (${confirmedName})`, 'RP World Music', { timeOut: 3500 });
+            if (activeName) {
+                console.log(`[RP-Music] 🎵 Spotify playback confirmed via default player: ${activeName}`);
+                if (typeof toastr !== 'undefined') {
+                    toastr.success(`▶️ Playing on Spotify Connect (${activeName})`, 'RP World Music', { timeOut: 3500 });
+                }
+                return true;
             }
-            return true;
         }
 
         // None of the devices confirmed actually playing
